@@ -34,6 +34,7 @@ public class InventoryRouteBuilder extends RouteBuilder {
             .bindy(BindyType.Csv, BookInfo.class)
             .split(body()).parallelProcessing()
             .setHeader(KafkaConstants.KEY, simple("${body.isbn}"))
+            .wireTap("direct:archive")
             .choice()
                 .when(simple("${body.storeLocation} == 'london'"))
                     .marshal(new JacksonDataFormat(BookInfo.class))
@@ -43,12 +44,14 @@ public class InventoryRouteBuilder extends RouteBuilder {
                     .marshal(new JacksonDataFormat(BookInfo.class))
                     .log("Message sent: ${body}")
                     .to("kafka:newyork-inventory")
-                .when(simple("${body.storeLocation} == 'istanbul'"))
-                    .marshal(new JacksonDataFormat(BookInfo.class))
-                    .log("Message sent: ${body}")
-                    .to("kafka:istanbul-inventory")
                 .otherwise()
                     .log("No store location is defined for ${body}");
+
+
+            from("direct:archive")
+            .marshal(new JacksonDataFormat(BookInfo.class))
+            .log("Message sent to archive: ${body}")
+            .to("kafka:istanbul-archive");
     }
 }
 
